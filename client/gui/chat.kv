@@ -1,0 +1,39 @@
+<ChatLayout>:
+    send_button: send_button
+    user_input: user_input
+
+
+    TextInput:
+        id: user_input
+        pos_hint: {"x": 0, "top": 0.05}
+        multiline: False
+
+    Button:
+        id: send_button
+        text: "Send"
+        pos_hint: {"x": .8, "top": 0.05}
+        font_size: 16
+        size_hint: .2, .05
+
+
+    ScrollView:
+        pos_hint: {"x": 0, "top": 0.95}
+        size_hint: 1, .9
+        do_scroll_x: False
+        do_scroll_y: True
+
+        Label:
+            text: "Hello"
+            size_hint_y: None
+            height:
+            color: 0, 1, 1, 1
+            font_size: 16
+            canvas.before:
+                Color:
+                    rgba: 0, 0, 0, 1
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [10, 10, 10, 10]
+
+

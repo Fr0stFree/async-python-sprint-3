@@ -1,15 +1,17 @@
 import asyncio
 import logging.config
+import threading
 
 from aioconsole import ainput
 
 from server.core.network import DataTransport, Request, Update
 from settings import Settings
 from utils.functions import print_update
+from gui.chat import ChatApp
 
 
 settings = Settings()
-logging.config.dictConfig(settings.LOGGING)
+# logging.config.dictConfig(settings.LOGGING)
 logger = logging.getLogger(__name__)
 
 
@@ -26,14 +28,15 @@ class Client:
         self._transport = DataTransport(writer, reader)
         logger.debug("Connected to %s:%s", self._server_host, self._server_port)
         self._receiver = asyncio.ensure_future(self._receive_data())
+        self._sender = asyncio.ensure_future(self._send_data())
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self._request_queue.join()
         self._receiver.cancel()
         await self._transport.close()
         logger.info("Connection to %s:%s is closed", self._server_host, self._server_port)
-    
+
     async def _receive_data(self) -> None:
         while True:
             try:
@@ -43,18 +46,37 @@ class Client:
             except ConnectionError:
                 break
 
-    async def send(self, statement: str) -> None:
-        command, *value = statement.split()
-        request = Request(command, ' '.join(value))
-        await self._transport.transfer(request.to_json())
+    async def _send_data(self) -> None:
+        while True:
+            statement = await self._request_queue.get()
+            command, *value = statement.split()
+            request = Request(command, ' '.join(value))
+            await self._transport.transfer(request.to_json())
+
+    @property
+    def request_queue(self) -> asyncio.Queue:
+        return self._request_queue
+
 
     async def handle_input(self) -> None:
         while True:
             statement = await ainput()
             match statement.split():
                 case [command, *value]:
-                    await self.send(statement)
+                    await self._request_queue.put(statement)
                     if command == 'exit':
                         break
                 case _:
                     continue
+
+
+async def main():
+    async with Client(server_host=settings.SERVER_HOST, server_port=settings.SERVER_PORT) as client:
+        await ChatApp(requests=client.request_queue).async_run(async_lib='asyncio')
+
+
+if __name__ == '__main__':
+   asyncio.run(main())
+
+
+
